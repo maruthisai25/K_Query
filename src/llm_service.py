@@ -31,7 +31,9 @@ class LLMService:
     async def _pull_model(self):
         """Pull the Llama model if not available"""
         try:
-            async with aiohttp.ClientSession() as session:
+            # Use longer timeout for model pulling
+            pull_timeout = aiohttp.ClientTimeout(total=300)  # 5 minutes
+            async with aiohttp.ClientSession(timeout=pull_timeout) as session:
                 payload = {"name": self.model_name}
                 async with session.post(
                     f"{self.ollama_url}/api/pull",
@@ -59,7 +61,7 @@ class LLMService:
         full_prompt = f"{system_prompt}\n\nContext: {context}\n\nQuestion: {message}"
         
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
                 payload = {
                     "model": self.model_name,
                     "prompt": full_prompt,
@@ -89,7 +91,7 @@ class LLMService:
     async def health_check(self) -> bool:
         """Check if Ollama service is healthy"""
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
                 async with session.get(f"{self.ollama_url}/api/tags") as response:
                     return response.status == 200
         except Exception as e:

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 import logging
 import time
+from contextlib import asynccontextmanager
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from fastapi.responses import Response
 from .llm_service import LLMService
@@ -14,10 +15,7 @@ from .slack_bot import SlackBot
 from .config import Config
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-app = FastAPI(title="Infra Copilot", version="1.0.0")
 
 # Prometheus metrics
 REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint'])
@@ -32,6 +30,40 @@ k8s_client = K8sClient()
 prometheus_client = CustomPrometheusClient(config.PROMETHEUS_URL)
 vector_store = VectorStore(config.QDRANT_URL)
 slack_bot = SlackBot()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
+    logger.info("Starting Infra Copilot...")
+    
+    # Validate configuration
+    if not config.validate():
+        logger.error("Configuration validation failed")
+        raise RuntimeError("Configuration validation failed")
+    
+    # Initialize vector store
+    try:
+        await vector_store.initialize_collection()
+        logger.info("Vector store initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize vector store: {e}")
+        raise
+    
+    logger.info("Infra Copilot started successfully")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down Infra Copilot...")
+
+
+app = FastAPI(
+    title="Infra Copilot", 
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 class ChatRequest(BaseModel):
     message: str
@@ -49,13 +81,40 @@ async def health_check():
     # Check all dependencies
     health_status = {
         "status": "healthy",
-        "services": {
-            "ollama": await llm_service.health_check(),
-            "qdrant": await vector_store.health_check(),
-            "kubernetes": await k8s_client.health_check() if hasattr(k8s_client, 'health_check') else True,
-            "prometheus": await prometheus_client.health_check() if hasattr(prometheus_client, 'health_check') else True
-        }
+        "services": {}
     }
+    
+    try:
+        health_status["services"]["ollama"] = await llm_service.health_check()
+    except Exception as e:
+        logger.error(f"Ollama health check failed: {e}")
+        health_status["services"]["ollama"] = False
+    
+    try:
+        health_status["services"]["qdrant"] = await vector_store.health_check()
+    except Exception as e:
+        logger.error(f"Qdrant health check failed: {e}")
+        health_status["services"]["qdrant"] = False
+    
+    try:
+        # Check if k8s_client has health_check method
+        if hasattr(k8s_client, 'health_check') and callable(getattr(k8s_client, 'health_check')):
+            health_status["services"]["kubernetes"] = await k8s_client.health_check()
+        else:
+            health_status["services"]["kubernetes"] = True  # Assume healthy if no method
+    except Exception as e:
+        logger.error(f"Kubernetes health check failed: {e}")
+        health_status["services"]["kubernetes"] = False
+    
+    try:
+        # Check if prometheus_client has health_check method
+        if hasattr(prometheus_client, 'health_check') and callable(getattr(prometheus_client, 'health_check')):
+            health_status["services"]["prometheus"] = await prometheus_client.health_check()
+        else:
+            health_status["services"]["prometheus"] = True  # Assume healthy if no method
+    except Exception as e:
+        logger.error(f"Prometheus health check failed: {e}")
+        health_status["services"]["prometheus"] = False
     
     # Overall health
     if not all(health_status["services"].values()):
@@ -124,20 +183,7 @@ async def chat(request: ChatRequest):
         logger.error(f"Error processing chat request: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup"""
-    logger.info("Starting Infra Copilot...")
-    
-    # Validate configuration
-    if not config.validate():
-        logger.error("Configuration validation failed")
-        return
-    
-    # Initialize vector store
-    await vector_store.initialize_collection()
-    
-    logger.info("Infra Copilot started successfully")
+
 
 if __name__ == "__main__":
     import uvicorn

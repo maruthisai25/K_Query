@@ -48,9 +48,8 @@ RUN mkdir -p /app/models /root/.ollama && \
     chown -R appuser:appuser /app/models && \
     chmod +x /start.sh
 
-# Switch to non-root user (for app, but ollama needs root)
-# Note: This is a compromise - in production, consider running Ollama separately
-USER root
+# Switch to non-root user for security
+USER appuser
 
 # Expose ports
 EXPOSE 8000 11434
