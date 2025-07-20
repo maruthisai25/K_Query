@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: infra-copilot
+  name: k-query
   namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: infra-copilot
+  name: k-query
 rules:
 - apiGroups: [""]
   resources: ["pods", "services", "events", "namespaces"]
@@ -25,12 +25,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: infra-copilot
+  name: k-query
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: infra-copilot
+  name: k-query
 subjects:
 - kind: ServiceAccount
-  name: infra-copilot
+  name: k-query
   namespace: default

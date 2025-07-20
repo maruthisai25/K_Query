@@ -3,7 +3,7 @@
 # Local development run script
 # Runs the application locally without Docker
 
-echo "🚀 Starting Infra Copilot locally..."
+echo "🚀 Starting K-Query locally..."
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then

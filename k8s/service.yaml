@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: infra-copilot
+  name: k-query
   labels:
-    app: infra-copilot
+    app: k-query
 spec:
   type: LoadBalancer
   ports:
@@ -16,14 +16,14 @@ spec:
     protocol: TCP
     name: ollama
   selector:
-    app: infra-copilot
+    app: k-query
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: infra-copilot-internal
+  name: k-query-internal
   labels:
-    app: infra-copilot
+    app: k-query
 spec:
   type: ClusterIP
   ports:
@@ -32,4 +32,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: infra-copilot
+    app: k-query

@@ -1,11 +1,11 @@
-# Infra Copilot - Makefile
+# K-Query - Makefile
 # Convenient commands for development and deployment
 
 .PHONY: help setup build test run clean deploy lint security
 
 # Default target
 help:
-	@echo "Infra Copilot - Available Commands"
+	@echo "K-Query - Available Commands"
 	@echo "=================================="
 	@echo ""
 	@echo "Development:"
@@ -36,7 +36,7 @@ setup:
 # Build Docker image
 build:
 	@echo "🐳 Building Docker image..."
-	docker build -t infra-copilot:latest .
+	docker build -t k-query:latest .
 
 # Build multi-arch image
 build-multi:
@@ -110,12 +110,12 @@ deploy:
 # Show logs
 logs:
 	@echo "📋 Showing application logs..."
-	docker-compose logs -f infra-copilot
+	docker-compose logs -f k-query
 
 # Open shell in container
 shell:
 	@echo "🐚 Opening shell in container..."
-	docker-compose exec infra-copilot /bin/bash
+	docker-compose exec k-query /bin/bash
 
 # Development setup
 dev-setup: setup run

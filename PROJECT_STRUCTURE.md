@@ -1,9 +1,9 @@
-# Infra Copilot - Project Structure
+# K-Query - Project Structure
 
 ## 📁 Directory Layout
 
 ```
-infra-copilot/
+k-query/
 ├── 📁 src/                     # Python source code
 │   ├── 🐍 main.py             # FastAPI application entry point
 │   ├── ⚙️  config.py           # Configuration management

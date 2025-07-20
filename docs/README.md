@@ -1,4 +1,4 @@
-# Infra Copilot - Self-Hosted LLM DevOps Assistant
+# K-Query - Self-Hosted LLM DevOps Assistant
 
 A Slack bot that answers DevOps questions using a local Llama model with kubectl and Prometheus integration.
 
@@ -29,7 +29,7 @@ A Slack bot that answers DevOps questions using a local Llama model with kubectl
 
 ### Services Included
 
-- **infra-copilot**: Main FastAPI application with Ollama
+- **k-query**: Main FastAPI application with Ollama
 - **qdrant**: Vector database for FAQ/runbooks
 - **prometheus**: Metrics collection
 - **grafana**: Metrics visualization

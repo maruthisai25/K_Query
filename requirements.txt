@@ -4,7 +4,7 @@ uvicorn[standard]==0.24.0
 pydantic==2.5.0
 
 # HTTP client with proper timeout support
-aiohttp==3.9.3
+aiohttp==3.9.1
 
 # Kubernetes integration
 kubernetes==28.1.0

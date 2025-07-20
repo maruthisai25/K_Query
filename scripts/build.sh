@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-IMAGE_NAME="${IMAGE_NAME:-infra-copilot}"
+IMAGE_NAME="${IMAGE_NAME:-k-query}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 REGISTRY="${REGISTRY:-}"
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
@@ -210,7 +210,7 @@ show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo
     echo "Options:"
-    echo "  -n, --name NAME        Image name (default: infra-copilot)"
+    echo "  -n, --name NAME        Image name (default: k-query)"
     echo "  -t, --tag TAG          Image tag (default: latest)"
     echo "  -r, --registry REG     Registry URL (optional)"
     echo "  -p, --platforms PLAT   Target platforms (default: linux/amd64,linux/arm64)"

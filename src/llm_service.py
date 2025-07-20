@@ -12,6 +12,7 @@ class LLMService:
         self.config = Config()
         self.ollama_url = self.config.ollama_url
         self.model_name = self.config.MODEL_PATH
+        self.timeout = aiohttp.ClientTimeout(total=self.config.OLLAMA_TIMEOUT)
     
     async def ensure_model_loaded(self):
         """Ensure the Llama model is loaded in Ollama"""

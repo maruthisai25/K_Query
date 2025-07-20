@@ -17,23 +17,23 @@ resources:
   - prometheus-adapter.yaml
 
 images:
-  - name: infra-copilot
+  - name: k-query
     newTag: latest
 
 commonLabels:
-  app: infra-copilot
+  app: k-query
   version: v1.0.0
 
 configMapGenerator:
-  - name: infra-copilot-config
+  - name: k-query-config
     behavior: merge
     literals:
       - prometheus-url=http://prometheus-server.monitoring.svc:9090
       - qdrant-url=http://qdrant:6333
-      - chat-api-url=http://infra-copilot:8000/chat
+      - chat-api-url=http://k-query:8000/chat
 
 secretGenerator:
-  - name: infra-copilot-secrets
+  - name: k-query-secrets
     type: Opaque
     literals:
       - slack-bot-token=xoxb-your-token-here

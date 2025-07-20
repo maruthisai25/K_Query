@@ -1,12 +1,12 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: infra-copilot-network-policy
+  name: k-query-network-policy
   namespace: default
 spec:
   podSelector:
     matchLabels:
-      app: infra-copilot
+      app: k-query
   policyTypes:
   - Ingress
   - Egress

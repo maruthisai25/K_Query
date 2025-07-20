@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   # Main application
-  infra-copilot:
+  k-query:
     build:
       context: .
       dockerfile: Dockerfile
@@ -25,7 +25,7 @@ services:
       - qdrant
       - prometheus
     networks:
-      - infra-copilot-network
+      - k-query-network
     restart: unless-stopped
 
   # Qdrant vector database
@@ -40,7 +40,7 @@ services:
     volumes:
       - qdrant_storage:/qdrant/storage
     networks:
-      - infra-copilot-network
+      - k-query-network
     restart: unless-stopped
 
   # Prometheus for metrics
@@ -59,7 +59,7 @@ services:
       - '--storage.tsdb.retention.time=200h'
       - '--web.enable-lifecycle'
     networks:
-      - infra-copilot-network
+      - k-query-network
     restart: unless-stopped
 
   # Grafana for visualization (optional)
@@ -73,7 +73,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
-      - infra-copilot-network
+      - k-query-network
     restart: unless-stopped
     depends_on:
       - prometheus
@@ -85,5 +85,5 @@ volumes:
   ollama_models:
 
 networks:
-  infra-copilot-network:
+  k-query-network:
     driver: bridge

@@ -36,7 +36,7 @@ slack_bot = SlackBot()
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
-    logger.info("Starting Infra Copilot...")
+    logger.info("Starting K-Query...")
     
     # Validate configuration
     if not config.validate():
@@ -51,16 +51,16 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize vector store: {e}")
         raise
     
-    logger.info("Infra Copilot started successfully")
+    logger.info("K-Query started successfully")
     
     yield
     
     # Shutdown
-    logger.info("Shutting down Infra Copilot...")
+    logger.info("Shutting down K-Query...")
 
 
 app = FastAPI(
-    title="Infra Copilot", 
+    title="K-Query", 
     version="1.0.0",
     lifespan=lifespan
 )
@@ -184,7 +184,11 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-
-if __name__ == "__main__":
+def main():
+    """Main entry point for the application"""
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+if __name__ == "__main__":
+    main()

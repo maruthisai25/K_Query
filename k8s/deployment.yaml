@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: infra-copilot
+  name: k-query
   labels:
-    app: infra-copilot
+    app: k-query
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: infra-copilot
+      app: k-query
   template:
     metadata:
       labels:
-        app: infra-copilot
+        app: k-query
     spec:
-      serviceAccountName: infra-copilot
+      serviceAccountName: k-query
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
       containers:
-      - name: infra-copilot
-        image: infra-copilot:latest
+      - name: k-query
+        image: k-query:latest
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -38,22 +38,22 @@ spec:
         - name: SLACK_BOT_TOKEN
           valueFrom:
             secretKeyRef:
-              name: infra-copilot-secrets
+              name: k-query-secrets
               key: slack-bot-token
         - name: SLACK_SIGNING_SECRET
           valueFrom:
             secretKeyRef:
-              name: infra-copilot-secrets
+              name: k-query-secrets
               key: slack-signing-secret
         - name: PROMETHEUS_URL
           valueFrom:
             configMapKeyRef:
-              name: infra-copilot-config
+              name: k-query-config
               key: prometheus-url
         - name: QDRANT_URL
           valueFrom:
             configMapKeyRef:
-              name: infra-copilot-config
+              name: k-query-config
               key: qdrant-url
         - name: KUBERNETES_NAMESPACE
           valueFrom:
@@ -88,7 +88,7 @@ spec:
       volumes:
       - name: model-storage
         persistentVolumeClaim:
-          claimName: infra-copilot-models
+          claimName: k-query-models
       - name: ollama-storage
         persistentVolumeClaim:
-          claimName: infra-copilot-ollama
+          claimName: k-query-ollama

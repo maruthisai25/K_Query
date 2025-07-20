@@ -1,4 +1,4 @@
-# Infra Copilot - Self-Hosted LLM DevOps Assistant
+# K-Query - Self-Hosted LLM DevOps Assistant
 
 A Slack bot that answers DevOps questions using a local Llama model with kubectl and Prometheus integration.
 
@@ -19,7 +19,7 @@ make test
 ## 📁 Project Structure
 
 ```
-infra-copilot/
+k-query/
 ├── src/                    # Python source code
 │   ├── main.py            # FastAPI application
 │   ├── config.py          # Configuration management
