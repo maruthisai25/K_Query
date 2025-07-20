@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: infra-copilot
+  labels:
+    name: infra-copilot
+    app: infra-copilot

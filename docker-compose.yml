@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # Main application
+  infra-copilot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+      - "11434:11434"
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
+      - PROMETHEUS_URL=http://prometheus:9090
+      - QDRANT_URL=http://qdrant:6333
+      - KUBERNETES_NAMESPACE=default
+      - MODEL_PATH=llama2:7b
+      - OLLAMA_HOST=localhost
+      - OLLAMA_PORT=11434
+    volumes:
+      - ollama_models:/app/models
+      - ./:/app
+    depends_on:
+      - qdrant
+      - prometheus
+    networks:
+      - infra-copilot-network
+    restart: unless-stopped
+
+  # Qdrant vector database
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks:
+      - infra-copilot-network
+    restart: unless-stopped
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - infra-copilot-network
+    restart: unless-stopped
+
+  # Grafana for visualization (optional)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - infra-copilot-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  qdrant_storage:
+  prometheus_data:
+  grafana_data:
+  ollama_models:
+
+networks:
+  infra-copilot-network:
+    driver: bridge

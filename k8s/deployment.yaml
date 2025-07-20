@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-copilot
+  labels:
+    app: infra-copilot
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: infra-copilot
+  template:
+    metadata:
+      labels:
+        app: infra-copilot
+    spec:
+      serviceAccountName: infra-copilot
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: infra-copilot
+        image: infra-copilot:latest
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+        ports:
+        - containerPort: 8000
+          name: http
+        - containerPort: 11434
+          name: ollama
+        env:
+        - name: SLACK_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: infra-copilot-secrets
+              key: slack-bot-token
+        - name: SLACK_SIGNING_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: infra-copilot-secrets
+              key: slack-signing-secret
+        - name: PROMETHEUS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: infra-copilot-config
+              key: prometheus-url
+        - name: QDRANT_URL
+          valueFrom:
+            configMapKeyRef:
+              name: infra-copilot-config
+              key: qdrant-url
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MODEL_PATH
+          value: "llama2:7b"
+        resources:
+          requests:
+            memory: "8Gi"
+            cpu: "2000m"
+          limits:
+            memory: "16Gi"
+            cpu: "4000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: model-storage
+          mountPath: /app/models
+        - name: ollama-storage
+          mountPath: /root/.ollama
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: infra-copilot-models
+      - name: ollama-storage
+        persistentVolumeClaim:
+          claimName: infra-copilot-ollama
