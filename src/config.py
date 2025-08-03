@@ -35,7 +35,7 @@ class Config:
     # Model configuration
     MODEL_PATH: str = os.getenv("MODEL_PATH", "llama2:7b")
     
-    # Ollama configuration
+    # Model service configuration
     OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "localhost")
     OLLAMA_PORT: int = int(os.getenv("OLLAMA_PORT", "11434"))
     

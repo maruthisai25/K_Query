@@ -53,10 +53,10 @@ class LLMService:
         """Generate response using Ollama"""
         await self.ensure_model_loaded()
         
-        # Create system prompt for DevOps assistant
-        system_prompt = """You are an expert DevOps assistant. You help with Kubernetes, monitoring, 
-        infrastructure questions, and troubleshooting. Use the provided context to give accurate, 
-        actionable answers. If you don't know something, say so clearly. Keep responses concise and practical."""
+        # Create system prompt for DevOps automation
+        system_prompt = """You are an expert DevOps automation system. You help with Kubernetes, monitoring, 
+        infrastructure management, and troubleshooting. Use the provided context to give accurate, 
+        actionable responses. If you don't know something, say so clearly. Keep responses concise and practical."""
         
         # Combine user message with context
         if context and context.strip():

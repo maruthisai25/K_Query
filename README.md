@@ -1,11 +1,11 @@
-# K-Query - DevOps Assistant
+# K-Query - DevOps Automation Platform
 
-A Slack bot that answers DevOps questions using Ollama with kubectl and Prometheus integration. Get instant answers to infrastructure questions, troubleshoot issues, and access real-time cluster metrics directly from Slack.
+A comprehensive Slack bot for DevOps automation with kubectl and Prometheus integration. Streamline infrastructure management, troubleshoot issues, and access real-time cluster metrics directly from Slack.
 
 ## Features
 
 - **Slack Integration**: `/devops` command and direct messages
-- **Ollama Integration**: Local model inference for privacy and control
+- **Local Model Integration**: Private model inference for security and control
 - **Kubernetes Integration**: Live cluster information via kubectl
 - **Prometheus Monitoring**: Real-time metrics and alerts
 - **Vector Search**: FAQ and runbook search with Qdrant
@@ -38,7 +38,7 @@ SLACK_BOT_TOKEN=xoxb-your-bot-token-here
 SLACK_SIGNING_SECRET=your-signing-secret-here
 ```
 
-### 2. Slack Bot Setup
+### 2. Slack Application Setup
 
 1. Go to [Slack API](https://api.slack.com/apps) and create a new app
 2. Enable the following OAuth scopes:
@@ -104,20 +104,20 @@ make test
 ### Components
 
 - **FastAPI**: REST API and Slack webhook handler
-- **Ollama**: Local model inference engine
+- **Local Model Engine**: Private model inference engine
 - **Qdrant**: Vector database for knowledge search
 - **Kubernetes Client**: Live cluster information retrieval
 - **Prometheus Client**: Metrics collection and querying
-- **Slack Bot**: Interactive Slack integration
+- **Slack Integration**: Interactive Slack integration
 
 ### Data Flow
 
 ```
-Slack User → Slack Bot → FastAPI → Ollama Model
-                ↓              ↓
-        Vector Store ← Kubernetes API
-                ↓              ↓
-            Qdrant ←   Prometheus API
+Slack User → Slack Integration → FastAPI → Model Engine
+                ↓                    ↓
+        Vector Store ←      Kubernetes API
+                ↓                    ↓
+            Qdrant ←         Prometheus API
 ```
 
 ## Development
@@ -160,11 +160,11 @@ k-query/
 ├── src/                    # Python source code
 │   ├── main.py            # FastAPI application entry point
 │   ├── config.py          # Configuration management
-│   ├── llm_service.py     # Ollama integration
+│   ├── llm_service.py     # Model integration service
 │   ├── k8s_client.py      # Kubernetes API client
 │   ├── prometheus_client.py # Prometheus metrics client
 │   ├── vector_store.py    # Qdrant vector database client
-│   └── slack_bot.py       # Slack bot integration
+│   └── slack_bot.py       # Slack integration service
 ├── k8s/                   # Kubernetes manifests
 ├── scripts/               # Setup and build scripts
 ├── config/                # Configuration files
@@ -237,7 +237,7 @@ Access monitoring dashboards:
 
 ### Common Issues
 
-1. **Ollama model not found**
+1. **Model not found**
    ```bash
    # Pull the model manually
    docker exec -it k-query_k-query_1 ollama pull llama2:7b

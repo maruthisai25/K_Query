@@ -60,8 +60,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="K-Query", 
+    title="K-Query DevOps Platform", 
     version="1.0.0",
+    description="DevOps automation platform with Slack integration",
     lifespan=lifespan
 )
 
@@ -128,7 +129,7 @@ async def slack_events(request: Request):
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """Main chat endpoint for DevOps questions"""
+    """Main chat endpoint for DevOps automation"""
     start_time = time.time()
     REQUEST_COUNT.labels(method="POST", endpoint="/chat").inc()
     CHAT_REQUESTS.inc()
@@ -160,7 +161,7 @@ async def chat(request: ChatRequest):
         
         full_context = "\n".join(context_parts)
         
-        # Generate response using language model
+        # Generate response using model service
         response = await llm_service.generate_response(
             message=request.message,
             context=full_context.strip()

@@ -96,7 +96,7 @@ class SlackBot:
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"🤖 *DevOps Assistant*\n\n{response_text}"
+                    "text": f"⚙️ *DevOps Automation*\n\n{response_text}"
                 }
             }
         ]

@@ -1,7 +1,7 @@
 """
-K-Query - DevOps Assistant
+K-Query - DevOps Automation Platform
 
-A Slack bot that answers DevOps questions using Ollama 
+A comprehensive Slack integration for DevOps automation 
 with kubectl and Prometheus integration.
 """
 

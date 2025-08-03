@@ -21,7 +21,7 @@ def mock_config():
 
 @pytest.mark.asyncio
 async def test_llm_service_health_check():
-    """Test language model service health check"""
+    """Test model service health check"""
     service = LLMService()
     
     with patch('aiohttp.ClientSession') as mock_session:
