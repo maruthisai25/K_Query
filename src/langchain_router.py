@@ -1,5 +1,5 @@
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import Qdrant
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Qdrant
 from langchain.chains import RetrievalQA
 from langchain.llms.base import LLM
 from langchain.callbacks.manager import CallbackManagerForLLMRun
@@ -11,7 +11,7 @@ from .config import Config
 logger = logging.getLogger(__name__)
 
 class OllamaLLM(LLM):
-    """Custom LangChain LLM wrapper for Ollama"""
+    """Custom LangChain wrapper for Ollama"""
     
     model_name: str = "llama2:7b"
     ollama_url: str = "http://localhost:11434"

@@ -22,7 +22,7 @@ check_ollama() {
 
 # Start Ollama server in the background
 echo "🚀 Starting Ollama server..."
-ollama serve &
+OLLAMA_HOST=0.0.0.0 ollama serve &
 OLLAMA_PID=$!
 
 # Wait for Ollama to be ready

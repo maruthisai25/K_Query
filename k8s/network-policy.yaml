@@ -69,7 +69,7 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: infra-copilot
+          app: k-query
     ports:
     - protocol: TCP
       port: 6333

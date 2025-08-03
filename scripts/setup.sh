@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Infra Copilot - Setup Script
+# K-Query - Setup Script
 # Initialize FAQ data in Qdrant vector database
 
 set -e
 
-echo "🚀 Infra Copilot Setup Script"
-echo "=============================="
+echo "🚀 K-Query Setup Script"
+echo "======================="
 
 # Configuration
 QDRANT_URL="${QDRANT_URL:-http://localhost:6333}"

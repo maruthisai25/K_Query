@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "k-query"
 version = "1.0.0"
-description = "A Slack bot that answers DevOps questions using a local Llama model with kubectl and Prometheus integration"
+description = "A Slack bot that answers DevOps questions using Ollama with kubectl and Prometheus integration"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
-keywords = ["devops", "slack", "llm", "kubernetes", "prometheus"]
+keywords = ["devops", "slack", "kubernetes", "prometheus"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: System Administrators",

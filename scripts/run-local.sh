@@ -1,36 +1,57 @@
 #!/bin/bash
+set -e
 
-# Local development run script
-# Runs the application locally without Docker
+echo "🚀 Running K-Query locally..."
 
-echo "🚀 Starting K-Query locally..."
+# Check if .env file exists
+if [ ! -f .env ]; then
+    echo "⚠️  .env file not found. Copying from .env.example..."
+    cp .env.example .env
+    echo "📝 Please edit .env file with your actual credentials"
+fi
 
-# Check if virtual environment exists
+# Load environment variables
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+fi
+
+# Check if Python virtual environment exists
 if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
+    echo "🐍 Creating Python virtual environment..."
     python -m venv venv
 fi
 
 # Activate virtual environment
-echo "Activating virtual environment..."
-source venv/bin/activate
+echo "🔧 Activating virtual environment..."
+source venv/bin/activate || source venv/Scripts/activate
 
 # Install dependencies
-echo "Installing dependencies..."
+echo "📦 Installing dependencies..."
+pip install --upgrade pip
 pip install -r requirements.txt
 
-# Load environment variables
-if [ -f ".env" ]; then
-    echo "Loading environment variables from .env..."
-    export $(cat .env | grep -v '^#' | xargs)
-else
-    echo "⚠️  No .env file found. Copy .env.example to .env and configure it."
-    echo "Using default values for now..."
+# Check if required services are running
+echo "🔍 Checking required services..."
+
+# Check Qdrant
+if ! curl -s http://localhost:6333/health > /dev/null 2>&1; then
+    echo "❌ Qdrant is not running. Please start it with:"
+    echo "   docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant"
+    exit 1
 fi
 
+# Check Ollama
+if ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+    echo "❌ Ollama is not running. Please start it with:"
+    echo "   ollama serve"
+    exit 1
+fi
+
+echo "✅ All services are running"
+
 # Set Python path
-export PYTHONPATH=$(pwd):$PYTHONPATH
+export PYTHONPATH=$PWD:$PYTHONPATH
 
 # Start the application
-echo "Starting FastAPI application..."
+echo "🚀 Starting K-Query application..."
 python -m src.main

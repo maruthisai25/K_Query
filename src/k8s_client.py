@@ -152,3 +152,16 @@ class K8sClient:
         except ApiException as e:
             logger.error(f"Error getting events: {str(e)}")
             return f"Error getting events: {e.reason}"
+    
+    async def health_check(self) -> bool:
+        """Check if Kubernetes API is accessible"""
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: self.v1.list_namespace(limit=1)
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Kubernetes health check failed: {str(e)}")
+            return False

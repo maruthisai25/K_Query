@@ -83,6 +83,11 @@ class Config:
             logging.error("Timeout values must be positive")
             return False
         
+        # Validate Slack token format
+        if not self.SLACK_BOT_TOKEN.startswith('xoxb-'):
+            logging.error("SLACK_BOT_TOKEN should start with 'xoxb-'")
+            return False
+        
         logging.info("Configuration validation passed")
         return True
     

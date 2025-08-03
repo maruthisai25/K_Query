@@ -15,7 +15,7 @@ class LLMService:
         self.timeout = aiohttp.ClientTimeout(total=self.config.OLLAMA_TIMEOUT)
     
     async def ensure_model_loaded(self):
-        """Ensure the Llama model is loaded in Ollama"""
+        """Ensure the model is loaded in Ollama"""
         try:
             async with aiohttp.ClientSession() as session:
                 # Check if model exists
@@ -30,7 +30,7 @@ class LLMService:
             logger.error(f"Error checking model status: {str(e)}")
     
     async def _pull_model(self):
-        """Pull the Llama model if not available"""
+        """Pull the model if not available"""
         try:
             # Use longer timeout for model pulling
             pull_timeout = aiohttp.ClientTimeout(total=300)  # 5 minutes
@@ -56,10 +56,13 @@ class LLMService:
         # Create system prompt for DevOps assistant
         system_prompt = """You are an expert DevOps assistant. You help with Kubernetes, monitoring, 
         infrastructure questions, and troubleshooting. Use the provided context to give accurate, 
-        actionable answers. If you don't know something, say so clearly."""
+        actionable answers. If you don't know something, say so clearly. Keep responses concise and practical."""
         
         # Combine user message with context
-        full_prompt = f"{system_prompt}\n\nContext: {context}\n\nQuestion: {message}"
+        if context and context.strip():
+            full_prompt = f"{system_prompt}\n\nContext: {context}\n\nQuestion: {message}"
+        else:
+            full_prompt = f"{system_prompt}\n\nQuestion: {message}"
         
         try:
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
@@ -70,7 +73,8 @@ class LLMService:
                     "options": {
                         "temperature": 0.7,
                         "top_p": 0.9,
-                        "max_tokens": 500
+                        "num_predict": 500,
+                        "stop": ["\n\nQuestion:", "\n\nContext:"]
                     }
                 }
                 
@@ -87,7 +91,7 @@ class LLMService:
                         
         except Exception as e:
             logger.error(f"Error calling Ollama API: {str(e)}")
-            return "Sorry, I'm having trouble connecting to the language model."
+            return "Sorry, I'm having trouble connecting to the service."
     
     async def health_check(self) -> bool:
         """Check if Ollama service is healthy"""

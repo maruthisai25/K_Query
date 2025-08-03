@@ -97,21 +97,13 @@ async def health_check():
         health_status["services"]["qdrant"] = False
     
     try:
-        # Check if k8s_client has health_check method
-        if hasattr(k8s_client, 'health_check') and callable(getattr(k8s_client, 'health_check')):
-            health_status["services"]["kubernetes"] = await k8s_client.health_check()
-        else:
-            health_status["services"]["kubernetes"] = True  # Assume healthy if no method
+        health_status["services"]["kubernetes"] = await k8s_client.health_check()
     except Exception as e:
         logger.error(f"Kubernetes health check failed: {e}")
         health_status["services"]["kubernetes"] = False
     
     try:
-        # Check if prometheus_client has health_check method
-        if hasattr(prometheus_client, 'health_check') and callable(getattr(prometheus_client, 'health_check')):
-            health_status["services"]["prometheus"] = await prometheus_client.health_check()
-        else:
-            health_status["services"]["prometheus"] = True  # Assume healthy if no method
+        health_status["services"]["prometheus"] = await prometheus_client.health_check()
     except Exception as e:
         logger.error(f"Prometheus health check failed: {e}")
         health_status["services"]["prometheus"] = False
@@ -156,17 +148,22 @@ async def chat(request: ChatRequest):
             metrics_context = await prometheus_client.get_relevant_metrics(request.message)
         
         # Combine all context
-        full_context = f"""
-        Relevant documentation: {relevant_docs}
-        Kubernetes context: {k8s_context}
-        Metrics context: {metrics_context}
-        Additional context: {request.context or ''}
-        """
+        context_parts = []
+        if relevant_docs:
+            context_parts.append(f"Relevant documentation: {relevant_docs}")
+        if k8s_context:
+            context_parts.append(f"Kubernetes context: {k8s_context}")
+        if metrics_context:
+            context_parts.append(f"Metrics context: {metrics_context}")
+        if request.context:
+            context_parts.append(f"Additional context: {request.context}")
         
-        # Generate response using LLM
+        full_context = "\n".join(context_parts)
+        
+        # Generate response using language model
         response = await llm_service.generate_response(
             message=request.message,
-            context=full_context
+            context=full_context.strip()
         )
         
         duration = time.time() - start_time

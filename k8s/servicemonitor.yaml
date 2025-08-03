@@ -1,14 +1,14 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: infra-copilot
+  name: k-query
   namespace: default
   labels:
-    app: infra-copilot
+    app: k-query
 spec:
   selector:
     matchLabels:
-      app: infra-copilot
+      app: k-query
   endpoints:
   - port: http
     path: /metrics
@@ -18,13 +18,13 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: infra-copilot
+  name: k-query
   namespace: default
   labels:
-    app: infra-copilot
+    app: k-query
 spec:
   groups:
-  - name: infra-copilot
+  - name: k-query
     interval: 30s
     rules:
     - alert: HighRequestRate

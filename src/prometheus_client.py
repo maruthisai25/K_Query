@@ -131,3 +131,13 @@ class PrometheusClient:
     async def query_custom(self, query: str) -> Dict:
         """Execute a custom Prometheus query"""
         return await self._execute_query(query)
+    
+    async def health_check(self) -> bool:
+        """Check if Prometheus is accessible"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{self.prometheus_url}/api/v1/query?query=up") as response:
+                    return response.status == 200
+        except Exception as e:
+            logger.error(f"Prometheus health check failed: {str(e)}")
+            return False

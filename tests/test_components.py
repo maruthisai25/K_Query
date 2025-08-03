@@ -4,6 +4,8 @@ from unittest.mock import Mock, patch, AsyncMock
 from src.llm_service import LLMService
 from src.vector_store import VectorStore
 from src.k8s_client import K8sClient
+from src.prometheus_client import PrometheusClient
+from src.config import Config
 
 
 @pytest.fixture
@@ -19,7 +21,7 @@ def mock_config():
 
 @pytest.mark.asyncio
 async def test_llm_service_health_check():
-    """Test LLM service health check"""
+    """Test language model service health check"""
     service = LLMService()
     
     with patch('aiohttp.ClientSession') as mock_session:
@@ -100,6 +102,51 @@ def test_circuit_breaker():
     
     cb.call_succeeded()
     assert cb.state == "closed"
+
+
+@pytest.mark.asyncio
+async def test_prometheus_client_health_check():
+    """Test Prometheus client health check"""
+    client = PrometheusClient("http://localhost:9090")
+    
+    with patch('aiohttp.ClientSession') as mock_session:
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
+        
+        result = await client.health_check()
+        assert result is True
+
+
+@pytest.mark.asyncio
+async def test_k8s_client_health_check():
+    """Test K8s client health check"""
+    client = K8sClient()
+    
+    with patch.object(client, 'v1') as mock_v1:
+        mock_v1.list_namespace.return_value = Mock()
+        
+        result = await client.health_check()
+        assert result is True
+
+
+def test_config_validation():
+    """Test configuration validation"""
+    config = Config()
+    
+    # Test with missing required vars
+    config.SLACK_BOT_TOKEN = ""
+    config.SLACK_SIGNING_SECRET = ""
+    assert config.validate() is False
+    
+    # Test with valid config
+    config.SLACK_BOT_TOKEN = "xoxb-test-token"
+    config.SLACK_SIGNING_SECRET = "test-secret"
+    assert config.validate() is True
+    
+    # Test with invalid token format
+    config.SLACK_BOT_TOKEN = "invalid-token"
+    assert config.validate() is False
 
 
 if __name__ == "__main__":
