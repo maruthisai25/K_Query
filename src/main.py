@@ -18,9 +18,17 @@ from .config import Config
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Prometheus metrics
-REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint'])
-REQUEST_DURATION = Histogram('http_request_duration_seconds', 'HTTP request duration')
+# Prometheus metrics.
+# `status` is part of http_requests_total because the HighErrorRate alert in
+# k8s/servicemonitor.yaml and PrometheusClient._get_error_metrics both filter on
+# status=~"5..". Without the label those queries match nothing and the alert can
+# never fire.
+REQUEST_COUNT = Counter(
+    'http_requests_total', 'Total HTTP requests', ['method', 'endpoint', 'status']
+)
+REQUEST_DURATION = Histogram(
+    'http_request_duration_seconds', 'HTTP request duration', ['method', 'endpoint']
+)
 CHAT_REQUESTS = Counter('chat_requests_total', 'Total chat requests')
 CHAT_DURATION = Histogram('chat_request_duration_seconds', 'Chat request duration')
 
@@ -67,6 +75,31 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.middleware("http")
+async def record_request_metrics(request: Request, call_next):
+    """Emit http_requests_total and http_request_duration_seconds per request.
+
+    Done once here rather than per-endpoint so the two series stay consistent
+    and every response, including error responses produced by FastAPI itself,
+    is counted with its real status code.
+    """
+    start = time.perf_counter()
+    response = await call_next(request)
+
+    # The matched route template, so /chat stays one series instead of one per
+    # distinct URL. Falls back to the raw path for unmatched requests (404s).
+    route = request.scope.get("route")
+    endpoint = getattr(route, "path", request.url.path)
+
+    REQUEST_COUNT.labels(
+        method=request.method, endpoint=endpoint, status=str(response.status_code)
+    ).inc()
+    REQUEST_DURATION.labels(method=request.method, endpoint=endpoint).observe(
+        time.perf_counter() - start
+    )
+    return response
+
+
 class ChatRequest(BaseModel):
     message: str
     context: Optional[str] = None
@@ -78,8 +111,6 @@ class ChatResponse(BaseModel):
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    REQUEST_COUNT.labels(method="GET", endpoint="/health").inc()
-    
     # Check all dependencies
     health_status = {
         "status": "healthy",
@@ -125,14 +156,12 @@ async def metrics():
 @app.post("/slack/events")
 async def slack_events(request: Request):
     """Handle Slack events and slash commands"""
-    REQUEST_COUNT.labels(method="POST", endpoint="/slack/events").inc()
     return await slack_bot.get_handler().handle(request)
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """Main chat endpoint for DevOps automation"""
     start_time = time.time()
-    REQUEST_COUNT.labels(method="POST", endpoint="/chat").inc()
     CHAT_REQUESTS.inc()
     
     try:
