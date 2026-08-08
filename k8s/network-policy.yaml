@@ -11,48 +11,78 @@ spec:
   - Ingress
   - Egress
   ingress:
+  # Namespaces are selected by kubernetes.io/metadata.name, which the API server
+  # sets on every namespace. A plain "name" label is not set by Kubernetes and
+  # matches nothing.
   - from:
     - namespaceSelector:
         matchLabels:
-          name: ingress-nginx
+          kubernetes.io/metadata.name: ingress-nginx
+    # The Slack handler calls its own /chat endpoint through the k-query
+    # Service, so the app has to accept connections from its own pods.
     - podSelector:
         matchLabels:
-          app: slack-bot
+          app: k-query
     ports:
     - protocol: TCP
       port: 8000
   egress:
+  # DNS. CoreDNS lives in kube-system, so this needs a namespaceSelector --
+  # "podSelector: {}" only ever selects pods in this policy's own namespace,
+  # which leaves the pod unable to resolve anything.
   - to:
     - namespaceSelector:
         matchLabels:
-          name: default
-    ports:
-    - protocol: TCP
-      port: 6333  # Qdrant
-  - to:
-    - namespaceSelector:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
         matchLabels:
-          name: monitoring
+          k8s-app: kube-dns
     ports:
-    - protocol: TCP
-      port: 9090  # Prometheus
-  - to:
-    - podSelector: {}
-    ports:
-    - protocol: TCP
-      port: 443   # Kubernetes API
-  - to:
-    - podSelector: {}
-    ports:
-    - protocol: TCP
-      port: 53    # DNS
     - protocol: UDP
       port: 53
+    - protocol: TCP
+      port: 53
   - to:
-    - namespaceSelector: {}
+    - podSelector:
+        matchLabels:
+          app: qdrant
     ports:
     - protocol: TCP
-      port: 443   # External HTTPS (Slack API)
+      port: 6333
+    - protocol: TCP
+      port: 6334
+  - to:
+    - podSelector:
+        matchLabels:
+          app: ollama
+    ports:
+    - protocol: TCP
+      port: 11434
+  - to:
+    - podSelector:
+        matchLabels:
+          app: k-query
+    ports:
+    - protocol: TCP
+      port: 8000
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9090
+  # Outbound HTTPS: api.slack.com and the Kubernetes API server. Neither can be
+  # expressed with a namespaceSelector -- an empty namespaceSelector matches
+  # namespaces in this cluster, not hosts on the internet, and the API server
+  # endpoint is usually a node IP outside the pod network. Narrowing this needs
+  # the CIDRs of a specific cluster, so it is left open on 443 by default.
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - protocol: TCP
+      port: 443
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -75,3 +105,23 @@ spec:
       port: 6333
     - protocol: TCP
       port: 6334
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ollama-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: ollama
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: k-query
+    ports:
+    - protocol: TCP
+      port: 11434
