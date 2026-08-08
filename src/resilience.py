@@ -8,6 +8,11 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
+
+class CircuitBreakerOpen(RuntimeError):
+    """Raised instead of calling through a breaker that is currently open."""
+
+
 class CircuitBreaker:
     """Simple circuit breaker implementation"""
     
@@ -75,7 +80,9 @@ def with_circuit_breaker(circuit_breaker: CircuitBreaker):
         @wraps(func)
         async def wrapper(*args, **kwargs) -> T:
             if not circuit_breaker.can_execute():
-                raise Exception("Circuit breaker is open")
+                raise CircuitBreakerOpen(
+                    f"Circuit breaker is open for {func.__name__}"
+                )
             
             try:
                 result = await func(*args, **kwargs)
@@ -88,7 +95,7 @@ def with_circuit_breaker(circuit_breaker: CircuitBreaker):
         return wrapper
     return decorator
 
-# Global circuit breakers for different services
+# Ollama is the only dependency behind a breaker. The Kubernetes and Prometheus
+# clients degrade to a message in the prompt context rather than failing the
+# request, so tripping a breaker for them would not change any outcome.
 ollama_circuit_breaker = CircuitBreaker(failure_threshold=3, recovery_timeout=30)
-k8s_circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=60)
-prometheus_circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=60)

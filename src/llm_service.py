@@ -1,11 +1,16 @@
+import asyncio
 import aiohttp
-import json
 import logging
 from typing import Optional
 from .config import Config
 from .resilience import with_retries, with_circuit_breaker, ollama_circuit_breaker
 
 logger = logging.getLogger(__name__)
+
+
+class LLMServiceError(RuntimeError):
+    """Raised when Ollama cannot be reached or returns a non-200 response."""
+
 
 class LLMService:
     def __init__(self):
@@ -47,10 +52,20 @@ class LLMService:
         except Exception as e:
             logger.error(f"Error pulling model: {str(e)}")
     
-    @with_retries(max_attempts=3, delay=1.0)
+    # Breaker outside, retries inside: a request that fails all three attempts
+    # counts as one failure against the breaker, so a single bad request cannot
+    # trip a threshold of three on its own.
     @with_circuit_breaker(ollama_circuit_breaker)
+    @with_retries(max_attempts=3, delay=1.0)
     async def generate_response(self, message: str, context: Optional[str] = None) -> str:
-        """Generate response using Ollama"""
+        """Generate a response with Ollama.
+
+        Raises LLMServiceError on transport failure or a non-200 response. This
+        has to raise: it is wrapped in @with_retries and @with_circuit_breaker,
+        and both of those only see a failure if one propagates out. Returning an
+        apology string here would make the retry loop and the breaker dead code.
+        Turning the error into something a human reads is the caller's job.
+        """
         await self.ensure_model_loaded()
         
         # Create system prompt for DevOps automation
@@ -64,34 +79,38 @@ class LLMService:
         else:
             full_prompt = f"{system_prompt}\n\nQuestion: {message}"
         
+        payload = {
+            "model": self.model_name,
+            "prompt": full_prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "num_predict": 500,
+                "stop": ["\n\nQuestion:", "\n\nContext:"]
+            }
+        }
+
         try:
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                payload = {
-                    "model": self.model_name,
-                    "prompt": full_prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.7,
-                        "top_p": 0.9,
-                        "num_predict": 500,
-                        "stop": ["\n\nQuestion:", "\n\nContext:"]
-                    }
-                }
-                
                 async with session.post(
                     f"{self.ollama_url}/api/generate",
                     json=payload
                 ) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return data.get("response", "Sorry, I couldn't generate a response.")
-                    else:
-                        logger.error(f"Ollama API error: {response.status}")
-                        return "Sorry, there was an error generating the response."
-                        
-        except Exception as e:
-            logger.error(f"Error calling Ollama API: {str(e)}")
-            return "Sorry, I'm having trouble connecting to the service."
+                    if response.status != 200:
+                        body = (await response.text())[:200]
+                        raise LLMServiceError(
+                            f"Ollama returned HTTP {response.status}: {body}"
+                        )
+                    data = await response.json()
+        except LLMServiceError:
+            raise
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            raise LLMServiceError(
+                f"Could not reach Ollama at {self.ollama_url}: {e}"
+            ) from e
+
+        return data.get("response", "")
     
     async def health_check(self) -> bool:
         """Check if Ollama service is healthy"""

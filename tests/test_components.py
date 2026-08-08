@@ -1,11 +1,54 @@
 import pytest
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock
-from src.llm_service import LLMService
+from src.llm_service import LLMService, LLMServiceError
 from src.vector_store import VectorStore
 from src.k8s_client import K8sClient
 from src.prometheus_client import PrometheusClient
 from src.config import Config
+from src.resilience import CircuitBreakerOpen, ollama_circuit_breaker
+
+
+class _AsyncCM:
+    """Async context manager returning a fixed value.
+
+    aiohttp is used as `async with ClientSession() as s` / `async with s.get()
+    as r`. A bare MagicMock does not implement that protocol, so both layers
+    are wrapped in this instead.
+    """
+
+    def __init__(self, value):
+        self._value = value
+
+    async def __aenter__(self):
+        return self._value
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+
+def _fake_response(status=200, json_body=None, text_body=""):
+    response = Mock()
+    response.status = status
+    response.json = AsyncMock(return_value=json_body if json_body is not None else {})
+    response.text = AsyncMock(return_value=text_body)
+    return response
+
+
+def _patch_aiohttp(response):
+    """Patch aiohttp.ClientSession so every get/post yields `response`."""
+    session = Mock()
+    session.get = Mock(return_value=_AsyncCM(response))
+    session.post = Mock(return_value=_AsyncCM(response))
+    return patch("aiohttp.ClientSession", return_value=_AsyncCM(session)), session
+
+
+@pytest.fixture(autouse=True)
+def reset_ollama_breaker():
+    """The breaker is module-level global state; keep it out of other tests."""
+    ollama_circuit_breaker.call_succeeded()
+    yield
+    ollama_circuit_breaker.call_succeeded()
 
 
 @pytest.fixture
@@ -23,14 +66,61 @@ def mock_config():
 async def test_llm_service_health_check():
     """Test model service health check"""
     service = LLMService()
-    
-    with patch('aiohttp.ClientSession') as mock_session:
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
-        
+    patcher, _ = _patch_aiohttp(_fake_response(status=200))
+
+    with patcher:
         result = await service.health_check()
         assert result is True
+
+
+@pytest.mark.asyncio
+async def test_generate_response_returns_model_output():
+    """Happy path: the generated text is returned verbatim."""
+    service = LLMService()
+    patcher, _ = _patch_aiohttp(_fake_response(json_body={"response": "scale the deployment"}))
+
+    with patch.object(service, "ensure_model_loaded", AsyncMock()), patcher:
+        assert await service.generate_response("how do I scale?") == "scale the deployment"
+
+
+@pytest.mark.asyncio
+async def test_generate_response_retries_then_raises_on_http_error():
+    """A non-200 from Ollama must raise, and must be retried before it does.
+
+    This is the behaviour the @with_retries/@with_circuit_breaker decorators
+    depend on: when generate_response swallowed errors and returned a string,
+    neither decorator ever saw a failure.
+    """
+    service = LLMService()
+    patcher, session = _patch_aiohttp(_fake_response(status=500, text_body="boom"))
+
+    with patch.object(service, "ensure_model_loaded", AsyncMock()), \
+            patch("src.resilience.asyncio.sleep", AsyncMock()), patcher:
+        with pytest.raises(LLMServiceError) as excinfo:
+            await service.generate_response("why are my pods crashing?")
+
+    assert "500" in str(excinfo.value)
+    assert session.post.call_count == 3, "with_retries(max_attempts=3) did not retry"
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_opens_after_repeated_failures():
+    """Three failed calls open the breaker, and the next call fails fast."""
+    service = LLMService()
+    patcher, session = _patch_aiohttp(_fake_response(status=500, text_body="boom"))
+
+    with patch.object(service, "ensure_model_loaded", AsyncMock()), \
+            patch("src.resilience.asyncio.sleep", AsyncMock()), patcher:
+        for _ in range(3):
+            with pytest.raises(LLMServiceError):
+                await service.generate_response("ping")
+
+        calls_before = session.post.call_count
+
+        with pytest.raises(CircuitBreakerOpen):
+            await service.generate_response("ping")
+
+    assert session.post.call_count == calls_before, "open breaker still called Ollama"
 
 
 @pytest.mark.asyncio
@@ -108,12 +198,9 @@ def test_circuit_breaker():
 async def test_prometheus_client_health_check():
     """Test Prometheus client health check"""
     client = PrometheusClient("http://localhost:9090")
-    
-    with patch('aiohttp.ClientSession') as mock_session:
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_session.return_value.__aenter__.return_value.get.return_value.__aenter__.return_value = mock_response
-        
+    patcher, _ = _patch_aiohttp(_fake_response(status=200))
+
+    with patcher:
         result = await client.health_check()
         assert result is True
 

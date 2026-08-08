@@ -7,7 +7,8 @@ import time
 from contextlib import asynccontextmanager
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from fastapi.responses import Response
-from .llm_service import LLMService
+from .llm_service import LLMService, LLMServiceError
+from .resilience import CircuitBreakerOpen
 from .k8s_client import K8sClient
 from .prometheus_client import PrometheusClient as CustomPrometheusClient
 from .vector_store import VectorStore
@@ -175,6 +176,15 @@ async def chat(request: ChatRequest):
             sources=[doc.get("source", "") for doc in relevant_docs if doc.get("source")]
         )
         
+    except (LLMServiceError, CircuitBreakerOpen) as e:
+        # generate_response raises so the retry/breaker decorators can see the
+        # failure; turning it into something a user reads happens here.
+        CHAT_DURATION.observe(time.time() - start_time)
+        logger.error(f"Model service unavailable: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="The model service is unavailable. Please try again shortly."
+        )
     except Exception as e:
         duration = time.time() - start_time
         CHAT_DURATION.observe(duration)
