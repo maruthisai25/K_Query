@@ -20,9 +20,11 @@ images:
   - name: k-query
     newTag: latest
 
-commonLabels:
-  app: k-query
-  version: v1.0.0
+labels:
+  - pairs:
+      app.kubernetes.io/name: k-query
+      app.kubernetes.io/version: v1.0.0
+    includeSelectors: false
 
 configMapGenerator:
   - name: k-query-config
@@ -34,6 +36,7 @@ configMapGenerator:
 
 secretGenerator:
   - name: k-query-secrets
+    behavior: merge
     type: Opaque
     literals:
       - slack-bot-token=xoxb-your-token-here
