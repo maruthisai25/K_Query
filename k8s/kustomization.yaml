@@ -12,6 +12,7 @@ resources:
   - service.yaml
   - hpa.yaml
   - qdrant.yaml
+  - ollama.yaml
   - network-policy.yaml
   - servicemonitor.yaml
   - prometheus-adapter.yaml

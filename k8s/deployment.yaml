@@ -32,8 +32,6 @@ spec:
         ports:
         - containerPort: 8000
           name: http
-        - containerPort: 11434
-          name: ollama
         env:
         - name: SLACK_BOT_TOKEN
           valueFrom:
@@ -60,14 +58,29 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         - name: MODEL_PATH
-          value: "llama2:7b"
+          valueFrom:
+            configMapKeyRef:
+              name: k-query-config
+              key: model-path
+        - name: OLLAMA_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: k-query-config
+              key: ollama-host
+        - name: OLLAMA_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: k-query-config
+              key: ollama-port
+        # Sized for the app process only. Inference memory belongs to the
+        # ollama Deployment (k8s/ollama.yaml), not here.
         resources:
           requests:
-            memory: "8Gi"
-            cpu: "2000m"
+            memory: "1Gi"
+            cpu: "250m"
           limits:
-            memory: "16Gi"
-            cpu: "4000m"
+            memory: "2Gi"
+            cpu: "1000m"
         livenessProbe:
           httpGet:
             path: /health
@@ -81,14 +94,10 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 10
         volumeMounts:
-        - name: model-storage
-          mountPath: /app/models
-        - name: ollama-storage
-          mountPath: /root/.ollama
+        # Cache for the all-MiniLM-L6-v2 encoder. emptyDir, not a PVC: it is
+        # ~90 MB, re-downloadable, and the Deployment scales past one replica.
+        - name: encoder-cache
+          mountPath: /app/.cache
       volumes:
-      - name: model-storage
-        persistentVolumeClaim:
-          claimName: k-query-models
-      - name: ollama-storage
-        persistentVolumeClaim:
-          claimName: k-query-ollama
+      - name: encoder-cache
+        emptyDir: {}

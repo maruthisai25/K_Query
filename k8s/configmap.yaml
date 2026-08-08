@@ -6,7 +6,7 @@ data:
   prometheus-url: "http://prometheus-server:80"
   qdrant-url: "http://qdrant:6333"
   model-path: "llama2:7b"
-  ollama-host: "localhost"
+  ollama-host: "ollama"
   ollama-port: "11434"
 ---
 apiVersion: v1
