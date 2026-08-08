@@ -1,12 +1,13 @@
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-import asyncio
-from unittest.mock import Mock, patch, AsyncMock
-from src.llm_service import LLMService, LLMServiceError
-from src.vector_store import VectorStore
-from src.k8s_client import K8sClient
-from src.prometheus_client import PrometheusClient
+
 from src.config import Config
+from src.k8s_client import K8sClient
+from src.llm_service import LLMService, LLMServiceError
+from src.prometheus_client import PrometheusClient
 from src.resilience import CircuitBreakerOpen, ollama_circuit_breaker
+from src.vector_store import VectorStore
 
 
 class _AsyncCM:
@@ -94,8 +95,11 @@ async def test_generate_response_retries_then_raises_on_http_error():
     service = LLMService()
     patcher, session = _patch_aiohttp(_fake_response(status=500, text_body="boom"))
 
-    with patch.object(service, "ensure_model_loaded", AsyncMock()), \
-            patch("src.resilience.asyncio.sleep", AsyncMock()), patcher:
+    with (
+        patch.object(service, "ensure_model_loaded", AsyncMock()),
+        patch("src.resilience.asyncio.sleep", AsyncMock()),
+        patcher,
+    ):
         with pytest.raises(LLMServiceError) as excinfo:
             await service.generate_response("why are my pods crashing?")
 
@@ -109,8 +113,11 @@ async def test_circuit_breaker_opens_after_repeated_failures():
     service = LLMService()
     patcher, session = _patch_aiohttp(_fake_response(status=500, text_body="boom"))
 
-    with patch.object(service, "ensure_model_loaded", AsyncMock()), \
-            patch("src.resilience.asyncio.sleep", AsyncMock()), patcher:
+    with (
+        patch.object(service, "ensure_model_loaded", AsyncMock()),
+        patch("src.resilience.asyncio.sleep", AsyncMock()),
+        patcher,
+    ):
         for _ in range(3):
             with pytest.raises(LLMServiceError):
                 await service.generate_response("ping")
@@ -127,20 +134,20 @@ async def test_circuit_breaker_opens_after_repeated_failures():
 async def test_vector_store_search():
     """Test vector store search functionality"""
     store = VectorStore("http://localhost:6333")
-    
+
     # Mock the encoder
-    with patch.object(store, 'encoder') as mock_encoder:
+    with patch.object(store, "encoder") as mock_encoder:
         mock_encoder.encode.return_value.tolist.return_value = [0.1] * 384
-        
+
         # Mock the client search
-        with patch.object(store, 'client') as mock_client:
+        with patch.object(store, "client") as mock_client:
             mock_hit = Mock()
             mock_hit.payload = {"content": "test content", "source": "test.md"}
             mock_hit.score = 0.9
             mock_client.search.return_value = [mock_hit]
-            
+
             results = await store.search("test query", limit=1)
-            
+
             assert len(results) == 1
             assert results[0]["content"] == "test content"
             assert results[0]["score"] == 0.9
@@ -150,18 +157,18 @@ async def test_vector_store_search():
 async def test_k8s_client_get_pods():
     """Test K8s client pod retrieval"""
     client = K8sClient()
-    
-    with patch.object(client, 'v1') as mock_v1:
+
+    with patch.object(client, "v1") as mock_v1:
         # Mock pod list
         mock_pod = Mock()
         mock_pod.metadata.name = "test-pod"
         mock_pod.status.phase = "Running"
-        
+
         mock_pods = Mock()
         mock_pods.items = [mock_pod]
-        
+
         mock_v1.list_namespaced_pod.return_value = mock_pods
-        
+
         info = await client._get_pods_info()
         assert "test-pod(Running)" in info
 
@@ -169,27 +176,28 @@ async def test_k8s_client_get_pods():
 def test_circuit_breaker():
     """Test circuit breaker functionality"""
     from src.resilience import CircuitBreaker
-    
+
     cb = CircuitBreaker(failure_threshold=2, recovery_timeout=1)
-    
+
     # Test normal operation
     assert cb.can_execute() is True
     assert cb.state == "closed"
-    
+
     # Test failures
     cb.call_failed()
     assert cb.state == "closed"
-    
+
     cb.call_failed()
     assert cb.state == "open"
     assert cb.can_execute() is False
-    
+
     # Test recovery
     import time
+
     time.sleep(1.1)
     assert cb.can_execute() is True
     assert cb.state == "half-open"
-    
+
     cb.call_succeeded()
     assert cb.state == "closed"
 
@@ -209,10 +217,10 @@ async def test_prometheus_client_health_check():
 async def test_k8s_client_health_check():
     """Test K8s client health check"""
     client = K8sClient()
-    
-    with patch.object(client, 'v1') as mock_v1:
+
+    with patch.object(client, "v1") as mock_v1:
         mock_v1.list_namespace.return_value = Mock()
-        
+
         result = await client.health_check()
         assert result is True
 
@@ -220,17 +228,17 @@ async def test_k8s_client_health_check():
 def test_config_validation():
     """Test configuration validation"""
     config = Config()
-    
+
     # Test with missing required vars
     config.SLACK_BOT_TOKEN = ""
     config.SLACK_SIGNING_SECRET = ""
     assert config.validate() is False
-    
+
     # Test with valid config
     config.SLACK_BOT_TOKEN = "xoxb-test-token"
     config.SLACK_SIGNING_SECRET = "test-secret"
     assert config.validate() is True
-    
+
     # Test with invalid token format
     config.SLACK_BOT_TOKEN = "invalid-token"
     assert config.validate() is False
