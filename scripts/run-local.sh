@@ -33,15 +33,15 @@ pip install -r requirements.txt
 # Check if required services are running
 echo "🔍 Checking required services..."
 
-# Check Qdrant
-if ! curl -s http://localhost:6333/health > /dev/null 2>&1; then
+# Check Qdrant (/healthz -- Qdrant 404s on /health)
+if ! curl -fs http://localhost:6333/healthz > /dev/null; then
     echo "❌ Qdrant is not running. Please start it with:"
     echo "   docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant"
     exit 1
 fi
 
 # Check Ollama
-if ! curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+if ! curl -fs http://localhost:11434/api/tags > /dev/null; then
     echo "❌ Ollama is not running. Please start it with:"
     echo "   ollama serve"
     exit 1

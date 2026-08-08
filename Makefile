@@ -143,5 +143,5 @@ status:
 	@echo ""
 	@echo "🔍 Quick Health Check:"
 	@curl -s http://localhost:8000/health || echo "❌ API not responding"
-	@curl -s http://localhost:6333/health > /dev/null && echo "✅ Qdrant is healthy" || echo "❌ Qdrant not responding"
+	@curl -fs http://localhost:6333/healthz > /dev/null && echo "✅ Qdrant is healthy" || echo "❌ Qdrant not responding"
 	@curl -s http://localhost:9090/api/v1/query?query=up > /dev/null && echo "✅ Prometheus is healthy" || echo "❌ Prometheus not responding"

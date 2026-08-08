@@ -39,7 +39,7 @@ spec:
           mountPath: /qdrant/storage
         livenessProbe:
           httpGet:
-            path: /health
+            path: /healthz
             port: 6333
           initialDelaySeconds: 30
           periodSeconds: 10
