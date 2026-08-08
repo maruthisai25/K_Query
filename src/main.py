@@ -38,7 +38,19 @@ llm_service = LLMService()
 k8s_client = K8sClient()
 prometheus_client = CustomPrometheusClient(config.PROMETHEUS_URL)
 vector_store = VectorStore(config.QDRANT_URL)
-slack_bot = SlackBot()
+
+# SlackBot is built on first use, not at import. slack_bolt raises
+# "signing_secret must not be empty" in its constructor, so building it here
+# meant `import src.main` died with that raw error before config.validate() in
+# the lifespan handler could report which variables were actually missing.
+_slack_bot: Optional[SlackBot] = None
+
+
+def get_slack_bot() -> SlackBot:
+    global _slack_bot
+    if _slack_bot is None:
+        _slack_bot = SlackBot()
+    return _slack_bot
 
 
 @asynccontextmanager
@@ -51,7 +63,10 @@ async def lifespan(app: FastAPI):
     if not config.validate():
         logger.error("Configuration validation failed")
         raise RuntimeError("Configuration validation failed")
-    
+
+    # Fail at startup rather than on the first Slack request.
+    get_slack_bot()
+
     # Initialize vector store
     try:
         await vector_store.initialize_collection()
@@ -148,6 +163,17 @@ async def health_check():
     
     return health_status
 
+@app.get("/livez")
+async def liveness_check():
+    """Liveness check: is this process still serving?
+
+    Deliberately does not touch Qdrant, Ollama, Prometheus or the Kubernetes
+    API. /health returns 503 when any of those is down, and pointing a
+    livenessProbe at it means a Prometheus hiccup restarts every app pod.
+    """
+    return {"status": "alive"}
+
+
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint"""
@@ -156,7 +182,7 @@ async def metrics():
 @app.post("/slack/events")
 async def slack_events(request: Request):
     """Handle Slack events and slash commands"""
-    return await slack_bot.get_handler().handle(request)
+    return await get_slack_bot().get_handler().handle(request)
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):

@@ -81,9 +81,13 @@ spec:
           limits:
             memory: "2Gi"
             cpu: "1000m"
+        # Liveness asks only whether this process is serving. /health reports on
+        # Qdrant, Ollama, Prometheus and the Kubernetes API and returns 503 if
+        # any is down -- as a livenessProbe that turns a Prometheus blip into a
+        # restart of every app pod.
         livenessProbe:
           httpGet:
-            path: /health
+            path: /livez
             port: 8000
           initialDelaySeconds: 60
           periodSeconds: 30
