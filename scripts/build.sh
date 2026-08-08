@@ -4,9 +4,12 @@ set -e
 echo "🐳 Building multi-architecture Docker image for K-Query..."
 
 # Configuration
-IMAGE_NAME="k-query"
+# Fully qualified: a bare "k-query" resolves to docker.io/library/k-query, which
+# nobody can push to.
+IMAGE_NAME="${IMAGE_NAME:-ghcr.io/maruthisai25/k-query}"
 TAG="${TAG:-latest}"
-PLATFORMS="linux/amd64,linux/arm64"
+PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
+PUSH="${PUSH:-false}"
 
 # Check if buildx is available
 if ! docker buildx version > /dev/null 2>&1; then
@@ -24,12 +27,20 @@ fi
 # Use the builder
 docker buildx use "$BUILDER_NAME"
 
-# Build and push multi-arch image
+# Build (and optionally push) the multi-arch image.
+# Pushing is opt-in: PUSH=true requires `docker login ghcr.io` first.
 echo "🏗️  Building for platforms: $PLATFORMS"
+if [ "$PUSH" = "true" ]; then
+    OUTPUT_ARGS="--push"
+else
+    OUTPUT_ARGS="--output=type=image,push=false"
+    echo "ℹ️  PUSH is not set to true; building without pushing."
+fi
+
 docker buildx build \
     --platform "$PLATFORMS" \
     --tag "$IMAGE_NAME:$TAG" \
-    --push \
+    $OUTPUT_ARGS \
     .
 
 echo "✅ Multi-architecture build completed!"

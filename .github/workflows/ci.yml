@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install linters
+        run: pip install black==24.10.0 isort==5.13.2 flake8==7.1.1
+      - run: black --check src tests
+      - run: isort --check-only src tests
+      - run: flake8 src tests
+
+  test:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # test_vector_store_search constructs a real SentenceTransformer, which
+      # downloads all-MiniLM-L6-v2 (~90 MB) from Hugging Face on a cold cache.
+      - name: Cache Hugging Face models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-all-MiniLM-L6-v2
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov httpx
+
+      - name: Import the application
+        run: python -c "import src.main"
+
+      - run: pytest
+
+  manifests:
+    name: kubernetes manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml
+
+      - name: Render with kustomize
+        run: kubectl kustomize k8s/ | tee /tmp/rendered.yaml
+
+      - name: Assert each workload keeps its own selector
+        run: |
+          python3 - <<'PY'
+          import sys, yaml
+
+          docs = [d for d in yaml.safe_load_all(open("/tmp/rendered.yaml")) if d]
+          selectors = {}
+          for doc in docs:
+              kind, name = doc["kind"], doc["metadata"]["name"]
+              spec = doc.get("spec") or {}
+              if kind == "Deployment":
+                  selectors[(kind, name)] = spec["selector"]["matchLabels"]
+              elif kind == "Service":
+                  selectors[(kind, name)] = spec.get("selector")
+
+          for key, value in sorted(selectors.items()):
+              print(key, value)
+
+          # commonLabels used to inject app=k-query into every spec.selector,
+          # which gave qdrant and prometheus-adapter the same selector as the
+          # app and pointed Service/qdrant at k-query pods.
+          expected = {
+              ("Deployment", "k-query"): {"app": "k-query"},
+              ("Deployment", "qdrant"): {"app": "qdrant"},
+              ("Deployment", "ollama"): {"app": "ollama"},
+              ("Deployment", "prometheus-adapter"): {"app": "prometheus-adapter"},
+              ("Service", "qdrant"): {"app": "qdrant"},
+              ("Service", "ollama"): {"app": "ollama"},
+              ("Service", "prometheus-adapter"): {"app": "prometheus-adapter"},
+          }
+          failed = False
+          for key, want in expected.items():
+              got = selectors.get(key)
+              if got != want:
+                  print(f"FAIL {key}: expected {want}, got {got}", file=sys.stderr)
+                  failed = True
+          sys.exit(1 if failed else 0)
+          PY
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: k-query-ci
+
+      # ServiceMonitor and PrometheusRule are prometheus-operator CRDs. Without
+      # them `kubectl apply -k` fails with "no matches for kind ServiceMonitor".
+      - name: Install prometheus-operator CRDs
+        run: |
+          base=https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.76.0/example/prometheus-operator-crd
+          kubectl apply --server-side -f $base/monitoring.coreos.com_servicemonitors.yaml
+          kubectl apply --server-side -f $base/monitoring.coreos.com_prometheusrules.yaml
+
+      - name: Apply to the cluster
+        run: kubectl apply -k k8s/
+
+      - name: Show what was created
+        run: |
+          kubectl get deploy,svc,pvc,networkpolicy -o wide
+          kubectl get servicemonitor,prometheusrule
+
+  image:
+    name: docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          tags: k-query:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
