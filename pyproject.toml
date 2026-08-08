@@ -9,7 +9,7 @@ description = "A Slack bot for DevOps automation with kubectl and Prometheus int
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "maruthisai25", email = "dokkusaimaruthi@gmail.com"}
 ]
 keywords = ["devops", "slack", "kubernetes", "prometheus"]
 classifiers = [
@@ -56,9 +56,9 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/k-query"
-Repository = "https://github.com/yourusername/k-query"
-Issues = "https://github.com/yourusername/k-query/issues"
+Homepage = "https://github.com/maruthisai25/K_Query"
+Repository = "https://github.com/maruthisai25/K_Query"
+Issues = "https://github.com/maruthisai25/K_Query/issues"
 
 [project.scripts]
 k-query = "src.main:main"
