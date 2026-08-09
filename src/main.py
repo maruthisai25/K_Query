@@ -128,6 +128,37 @@ class ChatResponse(BaseModel):
     sources: Optional[list] = None
 
 
+@app.get("/readyz")
+async def readiness_check():
+    """Readiness: can this pod answer a question right now?
+
+    Only Qdrant and Ollama count. A question cannot be answered without an
+    embedding lookup and a model, so those gate traffic. Prometheus and the
+    Kubernetes API do not: both clients degrade to a note in the prompt
+    context instead of failing the request, so gating readiness on them would
+    pull every pod out of the Service over a dependency the bot can work
+    without. /health still reports on all four.
+    """
+    checks = {}
+
+    try:
+        checks["qdrant"] = await vector_store.health_check()
+    except Exception as e:
+        logger.error(f"Qdrant readiness check failed: {e}")
+        checks["qdrant"] = False
+
+    try:
+        checks["ollama"] = await llm_service.health_check()
+    except Exception as e:
+        logger.error(f"Ollama readiness check failed: {e}")
+        checks["ollama"] = False
+
+    if not all(checks.values()):
+        return JSONResponse(status_code=503, content={"status": "not ready", "checks": checks})
+
+    return {"status": "ready", "checks": checks}
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""

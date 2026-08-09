@@ -91,9 +91,12 @@ spec:
             port: 8000
           initialDelaySeconds: 60
           periodSeconds: 30
+        # Readiness gates on Qdrant and Ollama only. /health also covers
+        # Prometheus, which these manifests do not deploy, so using it here
+        # left the pods permanently NotReady and the Service with no endpoints.
         readinessProbe:
           httpGet:
-            path: /health
+            path: /readyz
             port: 8000
           initialDelaySeconds: 30
           periodSeconds: 10
