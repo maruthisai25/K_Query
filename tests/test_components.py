@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -191,10 +192,11 @@ def test_circuit_breaker():
     assert cb.state == "open"
     assert cb.can_execute() is False
 
-    # Test recovery
-    import time
-
-    time.sleep(1.1)
+    # Test recovery. Rather than sleeping out the recovery window, move the
+    # recorded failure into the past. Sleeping 1.1s against a 1s timeout leaves
+    # a 100ms margin, which is not enough on a loaded machine -- this test
+    # failed exactly once that way while a container build was running.
+    cb.last_failure_time = datetime.now() - timedelta(seconds=cb.recovery_timeout + 1)
     assert cb.can_execute() is True
     assert cb.state == "half-open"
 
