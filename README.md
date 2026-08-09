@@ -59,13 +59,28 @@ docker compose exec ollama ollama pull llama2:7b
 Check it came up:
 
 ```bash
-curl -s localhost:8000/health | jq
-curl -s localhost:8000/livez
+curl -s localhost:8000/health
 ```
 
-`/health` reports on all four dependencies and returns 503 if any is down. `/livez` only reports
-whether the process is serving; that is the one wired to the Kubernetes liveness probe, so a
-Prometheus blip does not restart the app.
+There are three health endpoints, because they answer three different questions:
+
+- `/livez`: is the process serving? Nothing else. This is the liveness probe, so a dependency
+  outage never causes a restart.
+- `/readyz`: can this pod answer a question? Qdrant and Ollama only. This is the readiness probe.
+- `/health`: the full picture, including Prometheus and the Kubernetes API. Returns 503 if any of
+  the four is down. Useful for a dashboard, wrong for a probe.
+
+From a pod running in a cluster with no Prometheus installed:
+
+```
+/livez  -> 200 {"status":"alive"}
+/readyz -> 200 {"status":"ready","checks":{"qdrant":true,"ollama":true}}
+/health -> 503 {"status":"unhealthy","services":{"ollama":true,"qdrant":true,
+                "kubernetes":true,"prometheus":false}}
+```
+
+The pod stays in the Service and keeps answering, and `/health` still tells you Prometheus is
+missing.
 
 ### Without Docker
 
@@ -101,6 +116,19 @@ applying; see `.github/workflows/ci.yml` if you want the exact URLs.
 What gets created: the app as a 2-replica Deployment behind a LoadBalancer, Ollama and Qdrant as
 single-replica Deployments with their own ClusterIP Services and PVCs, an HPA scaling the app from
 2 to 10, NetworkPolicies, RBAC, and the ServiceMonitor and alert rules.
+
+On a kind cluster, with the image built from this tree and loaded in:
+
+```
+$ kubectl get pods
+k-query-856c5b4756-gbrnj              1/1     Running
+k-query-856c5b4756-pg6g5              1/1     Running
+ollama-5f7cdd79f7-hv692               1/1     Running
+qdrant-556d649586-ttpbv               1/1     Running
+
+$ kubectl get endpoints k-query
+k-query   10.244.0.14:8000,10.244.0.15:8000
+```
 
 Ollama runs as its own Deployment rather than inside the app image. Baking it in meant copying
 `/bin/ollama` without `/usr/lib/ollama`, so the server started, `/api/tags` returned 200, every
